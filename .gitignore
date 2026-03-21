@@ -1,0 +1,28 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.idea/
+.vscode/
+
+# Dataset and temporary logs
+*.log
+*.csv
+!datasets/master_training_data.csv
+
+# LaTeX intermediates
+*.aux
+*.fdb_latexmk
+*.fls
+*.gz
+*.log
+*.out
+*.pdf
+!research/*.pdf
