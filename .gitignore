@@ -22,6 +22,7 @@ venv.bak/
 *.fdb_latexmk
 *.fls
 *.gz
+!models/*.gz
 *.log
 *.out
 *.pdf
