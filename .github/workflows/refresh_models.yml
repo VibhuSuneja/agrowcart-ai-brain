@@ -1,0 +1,42 @@
+name: 🤖 AgrowAI Brain Autopilot
+
+on:
+  schedule:
+    # Runs every Monday at 00:00 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  refresh-brain:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: 📦 Install Dependencies
+      run: |
+        pip install --extra-index-url https://download.pytorch.org/whl/cpu torch
+        pip install pandas numpy scikit-learn requests joblib
+
+    - name: 🚀 Run AI Autopilot Refresh
+      run: python autopilot_refresh.py
+
+    - name: 🔧 Config Git
+      run: |
+        git config --global user.name "AgrowAI-Autopilot"
+        git config --global user.email "autopilot@agrowcart.ai"
+
+    - name: 📦 Push Updated Brain Weights
+      run: |
+        git add models/*.pth models/*.gz models/health_report.csv
+        git commit -m "🤖 [Autopilot] Weekly AI Brain Refresh" || echo "No changes to commit"
+        git push origin main

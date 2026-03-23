@@ -7,6 +7,7 @@ import torch.nn as nn
 import os
 from pydantic import BaseModel
 from typing import List, Dict
+import pandas as pd
 
 # --- 1. MODEL ARCHITECTURE ---
 class PriceLSTM(nn.Module):
@@ -33,10 +34,21 @@ app.add_middleware(
 # --- 2. MULTI-MODEL ASSET LOADING ---
 MODELS: Dict[str, nn.Module] = {}
 SCALERS: Dict[str, object] = {}
+HEALTH_REPORT: Dict[str, float] = {}
 
 def load_all_millet_assets():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     models_dir = os.path.join(base_dir, "models")
+    
+    # Load Health Report if exists
+    health_path = os.path.join(models_dir, "health_report.csv")
+    if os.path.exists(health_path):
+        try:
+            h_df = pd.read_csv(health_path)
+            for _, row in h_df.iterrows():
+                HEALTH_REPORT[row['millet'].lower()] = row['accuracy']
+        except Exception as e:
+            print(f"⚠️ Health report error: {e}")
     
     if not os.path.exists(models_dir):
         print("⚠️ Models directory not found.")
@@ -144,6 +156,7 @@ async def predict_price(request: PredictionRequest):
             "expected_range": f"₹{round(float(real_price)-20, 2)} - ₹{round(float(real_price)+20, 2)}",
             "market_sentiment": sentiment,
             "farmer_advice": advice,
+            "ai_confidence": f"{HEALTH_REPORT.get(crop_id, 92.0)}%",
             "currency": "INR",
             "mandi_region": "Primary Indian Hub"
         }

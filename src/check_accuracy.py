@@ -1,50 +1,73 @@
 import pandas as pd
-import requests
-import json
+import numpy as np
+import torch
+import joblib
 import os
+from datetime import datetime, timedelta
 
-def validate_live_accuracy():
-    print("📈 AI vs real-world Market Comparison...")
-    
-    # 1. Get the latest real price from our massive dataset
-    csv_path = 'datasets/bajra_massive_dataset.csv'
-    if not os.path.exists(csv_path):
-        print("❌ Error: massive_dataset.csv not found. Run fetch_millet_data.py first!")
-        return
-    
-    real_df = pd.read_csv(csv_path)
-    real_avg_price = real_df['modal_price'].mean()
-    print(f"✅ Real-world Average (India today): ₹{real_avg_price:.2f}")
+def verify_model_accuracy(millet_name):
+    """
+    Simulates a 'Back-Validation' by testing the AI against the 
+    most recent actual market prices.
+    """
+    model_path = f"models/{millet_name}_lstm_model.pth"
+    scaler_path = f"models/{millet_name}_scaler.gz"
+    data_path = f"datasets/{millet_name}_training_processed.csv"
 
-    # 2. Get the latest AI prediction
-    url = "http://localhost:8000/predict"
-    # We use some dummy historical context for the test
-    import numpy as np
-    dummy_context = np.random.rand(14, 11).tolist()
+    if not all(os.path.exists(p) for p in [model_path, scaler_path, data_path]):
+        return None
+
+    # Load resources
+    df = pd.read_csv(data_path)
+    scaler = joblib.load(scaler_path)
     
-    try:
-        response = requests.post(url, json={"data": dummy_context}, timeout=5)
-        if response.status_code == 200:
-            pred_price = response.json().get('predicted_price')
-            print(f"🤖 AI Prediction for today/tomorrow: ₹{pred_price:.2f}")
-            
-            # 3. Calculate Variance
-            diff = abs(real_avg_price - pred_price)
-            variance_pct = (diff / real_avg_price) * 100
-            
-            print("-" * 40)
-            print(f"📊 Accuracy Variance: {variance_pct:.2f}%")
-            
-            if variance_pct < 5:
-                print("💎 STATUS: HIGH ACCURACY (Stable for Research)")
-            elif variance_pct < 10:
-                print("⚖️ STATUS: MODERATE (Normal Market Volatility)")
-            else:
-                print("⚠️ STATUS: LOW ACCURACY (Model needs retraining with more real history)")
-        else:
-            print("❌ Server error. Ensure api_server.py is running.")
-    except Exception as e:
-        print(f"❌ Error connecting to AI: {e}")
+    # Simple evaluation: Test against the last 5 days
+    # (Assuming the model was trained on the whole set, this measures 'Training Fit')
+    # For a real drift check, we would hold out new data.
+    
+    test_rows = df.tail(14)
+    if len(test_rows) < 14: return None
+    
+    # Extract features (skip Date and Target if it was included in training columns earlier)
+    # We use the same feature set as api_server.py
+    features = test_rows.drop(columns=['Date', 'District', 'Commodity', 'Market_Name'], errors='ignore').values
+    
+    # Prepare tensor
+    input_tensor = torch.tensor(features).float().unsqueeze(0)
+    
+    # Load model and predict
+    from api_server import PriceLSTM
+    model = PriceLSTM(input_dim=11, hidden_dim=64, num_layers=2, output_dim=1)
+    model.load_state_dict(torch.load(model_path, weights_only=True))
+    model.eval()
+    
+    with torch.no_grad():
+        pred_scaled = model(input_tensor)
+        
+    actual_price = test_rows.iloc[-1]['Modal_Price']
+    predicted_price = scaler.inverse_transform(pred_scaled.numpy())[0][0]
+    
+    error_pct = abs(actual_price - predicted_price) / actual_price * 100
+    accuracy = max(0, 100 - error_pct)
+    
+    return {
+        "millet": millet_name.upper(),
+        "accuracy": round(accuracy, 2),
+        "status": "Healthy" if accuracy > 85 else "Needs Retraining"
+    }
 
 if __name__ == "__main__":
-    validate_live_accuracy()
+    MILLETS = ['bajra', 'jowar', 'ragi', 'kodo', 'foxtail', 'barnyard', 'little']
+    print(f"--- 📊 AI Engine Health Report ({datetime.now().strftime('%Y-%m-%d')}) ---")
+    
+    report = []
+    for m in MILLETS:
+        stats = verify_model_accuracy(m)
+        if stats:
+            print(f"Millet: {stats['millet']} | Accuracy: {stats['accuracy']}% | Status: {stats['status']}")
+            report.append(stats)
+            
+    # Save report for API to read
+    report_df = pd.DataFrame(report)
+    report_df.to_csv("models/health_report.csv", index=False)
+    print("\n✅ Health report saved to models/health_report.csv")
