@@ -39,8 +39,8 @@ scaler = None
 def load_assets():
     global model, scaler
     print("🚀 Loading AI Assets...")
-    # Parameters must match the trained model (Now 15 features)
-    model = PriceLSTM(input_dim=15, hidden_dim=64, num_layers=2, output_dim=1)
+    # Parameters must match the trained model (11 features after dropping meta columns)
+    model = PriceLSTM(input_dim=11, hidden_dim=64, num_layers=2, output_dim=1)
     
     # Use absolute paths to avoid ambiguity during container startup
     base_dir = os.path.dirname(os.path.abspath(__file__))
