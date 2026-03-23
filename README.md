@@ -4,13 +4,15 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![PyTorch](https://img.lions/PyTorch-EE4C2C?style=flat&logo=pytorch)](https://pytorch.org/)
 
-An end-to-end, deep learning-based forecasting engine tailored for the **Kurukshetra Mandi**, focusing on highly perishable commodities such as tomatoes. This project fuses daily APMC market prices with exogenous NASA meteorological vectors to provide precision forecasts for smallholder farmers.
+An end-to-end, deep learning-based forecasting engine tailored for the **Agmarknet Network**, covering all **7 major Indian millets**. This project fuses daily APMC market prices with exogenous meteorological vectors to provide precision, actionable forecasts for smallholder farmers.
 
 ## 🚀 Key Features
-- **15-Dimensional Feature Set:** Integrates Market Dynamics (Price), Climate Vectors (NASA POWER), and Cyclical Seasonality (Sin/Cos Encodings).
-- **Comparative Architecture Study:** Evaluates **LSTM** vs. **Time-Series Transformer** performance in low-resource data regimes.
-- **FastAPI Microservice:** Scalable, asynchronous inference engine ready for production.
-- **Academic Rigor:** Accompanied by a full research paper detailing the "Mean Collapse" phenomenon in Transformers.
+- **100% Gov-Backed Data:** Integrated with Agmarknet (data.gov.in) for real-time mandate prices.
+- **7-Crop Millet Army:** Supports **Bajra, Jowar, Ragi, Kodo, Foxtail, Barnyard, and Little Millet**.
+- **Farmer-Friendly AI:** Provides human-readable output: Market Sentiment (Bullish/Bearish) and actionable Advice (Sell/Hold).
+- **15-Dimensional Feature Set:** Integrates Market Dynamics (Price), Climate Vectors, and Cyclical Seasonality.
+- **Comparative Architecture Study:** Evaluates **LSTM** vs. **Time-Series Transformer** performance.
+- **FastAPI Microservice:** Scalable, multi-model asynchronous inference engine.
 
 ## 📊 The Moment of Truth (Results)
 | Model | RMSE (₹) | MAE (₹) |

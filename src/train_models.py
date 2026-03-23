@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 import pandas as pd
+import os
+import joblib
 from sklearn.preprocessing import MinMaxScaler
 import math
 
@@ -141,45 +143,38 @@ def evaluate_and_plot(model, X_test, y_test, scaler, model_name="Model"):
     return predictions_real, actuals_real, rmse, mae
 
 # --- 5. EXECUTION ---
+# --- 5. EXECUTION ---
 if __name__ == "__main__":
+    import sys
+    # Load dataset and optional prefix
+    dataset_file = sys.argv[1] if len(sys.argv) > 1 else 'datasets/bajra_training_processed.csv'
+    model_prefix = sys.argv[2] if len(sys.argv) > 2 else 'bajra'
+    
     # 1. Load Data
-    X_train, y_train, X_test, y_test, target_scaler, num_features = load_and_window_data('master_training_data.csv')
+    X_train, y_train, X_test, y_test, target_scaler, num_features = load_and_window_data(dataset_file)
     
     # 2. Initialize Models
     lstm_model = PriceLSTM(input_dim=num_features, hidden_dim=64, num_layers=2, output_dim=FORECAST_HORIZON)
     transformer_model = PriceTransformer(input_dim=num_features, d_model=32, nhead=2, num_layers=2, output_dim=FORECAST_HORIZON)
     
     # 3. Train Both Models
-    print("\n--- Phase A: Training LSTM ---")
+    print(f"\n--- Phase A: Training LSTM on {dataset_file} ---")
     trained_lstm = train_model(lstm_model, X_train, y_train, "LSTM")
     
     print("\n--- Phase B: Training Transformer ---")
     trained_transformer = train_model(transformer_model, X_train, y_train, "Transformer")
     
     # 4. Evaluate and Get Real Values
-    lstm_preds, actuals, lstm_rmse, lstm_mae = evaluate_and_plot(trained_lstm, X_test, y_test, target_scaler, "LSTM")
-    trans_preds, _, trans_rmse, trans_mae = evaluate_and_plot(trained_transformer, X_test, y_test, target_scaler, "Transformer")
+    lstm_preds, actuals, lstm_rmse, lstm_mae = evaluate_and_plot(trained_lstm, X_test, y_test, target_scaler, f"LSTM_{model_prefix}")
+    trans_preds, _, trans_rmse, trans_mae = evaluate_and_plot(trained_transformer, X_test, y_test, target_scaler, f"Trans_{model_prefix}")
     
-    # 5. The Moment of Truth: Visualization
-    plt.figure(figsize=(14, 6))
-    plt.plot(actuals, label='Actual Tomato Price (₹)', color='black', linewidth=2)
-    plt.plot(lstm_preds, label=f'LSTM Prediction (MAE: ₹{lstm_mae:.2f})', color='blue', linestyle='dashed')
-    plt.plot(trans_preds, label=f'Transformer Prediction (MAE: ₹{trans_mae:.2f})', color='red', linestyle='dotted')
+    # 5. Export Assets
+    os.makedirs('models', exist_ok=True)
+    model_path = os.path.join("models", f"{model_prefix}_lstm_model.pth")
+    scaler_path = os.path.join("models", f"{model_prefix}_scaler.gz")
     
-    plt.title('AI Model Comparison: Real-time Agricultural Price Forecasting')
-    plt.xlabel('Days (Test Dataset)')
-    plt.ylabel('Modal Price (₹)')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
+    torch.save(trained_lstm.state_dict(), model_path)
+    joblib.dump(target_scaler, scaler_path)
     
-    print("\n📈 Generating comparison graph... Close the graph window to end the script.")
-    plt.show()
+    print(f"\n🚀 {model_prefix.upper()} Assets exported: {model_path} & {scaler_path}")
 
-    # --- 6. EXPORT ASSETS FOR DEPLOYMENT ---
-    import joblib
-    # 1. Save PyTorch Model
-    torch.save(lstm_model.state_dict(), "price_lstm_model.pth")
-    # 2. Save the Scaler (Crucial for the frontend to process data)
-    joblib.dump(target_scaler, "price_scaler.gz")
-    print("\n🚀 Assets exported: price_lstm_model.pth & price_scaler.gz")
