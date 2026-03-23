@@ -86,11 +86,26 @@ class PredictionRequest(BaseModel):
 
 @app.post("/predict")
 async def predict_price(request: PredictionRequest):
-    crop = request.crop.lower()
-    if crop not in MODELS:
-        return {"error": f"Model for '{crop}' not found. Available: {list(MODELS.keys())}"}
+    crop_input = request.crop.lower()
+    crop_id = None
+    
+    # 🕵️ Smart Match: Find which of our 7 models is mentioned in the input
+    current_keys = list(MODELS.keys())
+    print(f"DEBUG: Input='{crop_input}', ModelKeys={current_keys}")
+    
+    for m_key in current_keys:
+        if m_key in crop_input:
+            crop_id = m_key
+            break
+            
+    if not crop_id:
+        return {"error": f"Model for '{crop_input}' not found. Available: {current_keys}"}
 
     try:
+        # Guarantee for linter that crop_id is now a string and valid key
+        target_model = MODELS[crop_id]
+        target_scaler = SCALERS[crop_id]
+
         # data should be [[feat1...feat11], ... 14 times]
         input_array = np.array(request.data, dtype=np.float32)
         if input_array.shape != (14, 11):
@@ -102,14 +117,14 @@ async def predict_price(request: PredictionRequest):
         input_tensor = torch.tensor(input_array).unsqueeze(0)
         
         with torch.no_grad():
-            prediction = MODELS[crop](input_tensor)
+            prediction = target_model(input_tensor)
         
         # Scale back to Real Rupees
         # Type ignored for MinMaxScaler call
-        real_price = SCALERS[crop].inverse_transform(prediction.numpy())[0][0] # type: ignore
+        real_price = target_scaler.inverse_transform(prediction.numpy())[0][0] # type: ignore
         
         # --- FARMER FRIENDLY LOGIC ---
-        price_diff = real_price - current_price
+        price_diff = float(real_price) - float(current_price)
         sentiment = "Neutral"
         advice = "Wait and monitor mandi volume."
         
@@ -124,9 +139,9 @@ async def predict_price(request: PredictionRequest):
             advice = "Recommendation: MARKET STABLE. Current prices are fair. No immediate risk in selling or holding."
 
         return {
-            "crop": crop.upper(),
+            "crop": crop_id.upper(),
             "predicted_price": round(float(real_price), 2),
-            "expected_range": f"₹{round(real_price-20, 2)} - ₹{round(real_price+20, 2)}",
+            "expected_range": f"₹{round(float(real_price)-20, 2)} - ₹{round(float(real_price)+20, 2)}",
             "market_sentiment": sentiment,
             "farmer_advice": advice,
             "currency": "INR",
